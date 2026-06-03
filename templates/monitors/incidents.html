@@ -1,0 +1,86 @@
+{% extends 'monitors/base.html' %}
+
+{% block title %}Incidents — Multi Web Monitor{% endblock %}
+{% block page_title %}Incidents{% endblock %}
+
+{% block content %}
+
+<!-- Open Incidents -->
+<div class="section-header">
+  <h2 class="section-title">
+    <i class="bi bi-fire me-2 text-danger"></i>Active Incidents
+    {% if open_incidents %}
+      <span class="badge bg-danger ms-2">{{ open_incidents|length }}</span>
+    {% endif %}
+  </h2>
+</div>
+
+{% if open_incidents %}
+<div class="card-glass">
+  {% for inc in open_incidents %}
+  <div class="incident-row severity-{{ inc.severity }}">
+    <div class="incident-icon">
+      {% if inc.severity == 'critical' %}<i class="bi bi-fire"></i>
+      {% elif inc.severity == 'warning' %}<i class="bi bi-exclamation-triangle"></i>
+      {% else %}<i class="bi bi-info-circle"></i>{% endif %}
+    </div>
+    <div class="incident-info">
+      <div class="incident-title">{{ inc.title }}</div>
+      <div class="incident-meta">
+        <a href="{% url 'monitors:website_detail' inc.website.pk %}" class="site-link">{{ inc.website.name }}</a>
+        · Started {{ inc.started_at|timesince }} ago
+        · Duration: {{ inc.duration }}
+      </div>
+      {% if inc.description %}
+        <div class="incident-desc">{{ inc.description }}</div>
+      {% endif %}
+    </div>
+    <div class="incident-status">
+      <span class="badge-status badge-down pulse-badge">ACTIVE</span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state-sm">
+  <i class="bi bi-shield-check text-success"></i>
+  <span>No active incidents — all systems operational!</span>
+</div>
+{% endif %}
+
+<!-- Resolved Incidents -->
+<div class="section-header mt-5">
+  <h2 class="section-title">
+    <i class="bi bi-check-circle me-2 text-success"></i>Resolved Incidents
+  </h2>
+</div>
+
+{% if resolved_incidents %}
+<div class="card-glass">
+  {% for inc in resolved_incidents %}
+  <div class="incident-row incident-row-resolved">
+    <div class="incident-icon resolved-icon">
+      <i class="bi bi-check-circle-fill"></i>
+    </div>
+    <div class="incident-info">
+      <div class="incident-title text-muted">{{ inc.title }}</div>
+      <div class="incident-meta">
+        <a href="{% url 'monitors:website_detail' inc.website.pk %}" class="site-link">{{ inc.website.name }}</a>
+        · {{ inc.started_at|date:"M d, H:i" }}
+        · Duration: {{ inc.duration }}
+      </div>
+    </div>
+    <div class="incident-status">
+      <span class="badge-status badge-up">RESOLVED</span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state-sm">
+  <i class="bi bi-archive text-muted"></i>
+  <span class="text-muted">No resolved incidents to show.</span>
+</div>
+{% endif %}
+
+{% endblock %}

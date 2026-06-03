@@ -1,0 +1,234 @@
+{% extends 'monitors/base.html' %}
+{% load static %}
+
+{% block title %}{{ website.name }} — Multi Web Monitor{% endblock %}
+{% block page_title %}{{ website.name }}{% endblock %}
+
+{% block content %}
+
+<!-- Back Button + Actions -->
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <a href="{% url 'monitors:dashboard' %}" class="btn-back">
+    <i class="bi bi-arrow-left me-2"></i>Back to Dashboard
+  </a>
+  <div class="d-flex gap-2">
+    <button class="btn btn-outline-primary btn-sm" onclick="checkNow({{ website.id }}, this)">
+      <i class="bi bi-arrow-repeat me-1"></i>Check Now
+    </button>
+    <a href="{% url 'monitors:website_edit' website.pk %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-pencil me-1"></i>Edit
+    </a>
+  </div>
+</div>
+
+<!-- Site Header Card -->
+<div class="site-header-card">
+  <div class="site-header-left">
+    <div class="site-favicon-lg">
+      <img src="https://www.google.com/s2/favicons?domain={{ website.url }}&sz=64" alt="" width="40" height="40">
+    </div>
+    <div>
+      <h1 class="site-title">{{ website.name }}</h1>
+      <a href="{{ website.url }}" target="_blank" class="site-url-link">
+        {{ website.url }} <i class="bi bi-box-arrow-up-right ms-1"></i>
+      </a>
+    </div>
+  </div>
+  <div class="site-header-status">
+    <div class="status-big status-{{ website.current_status }}">
+      {% if website.current_status == 'up' %}
+        <i class="bi bi-check-circle-fill"></i>
+      {% elif website.current_status == 'down' %}
+        <i class="bi bi-x-circle-fill"></i>
+      {% else %}
+        <i class="bi bi-question-circle-fill"></i>
+      {% endif %}
+      {{ website.current_status|upper }}
+    </div>
+    {% if website.last_checked %}
+      <div class="last-checked-text">Last checked {{ website.last_checked|timesince }} ago</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Stats Row -->
+<div class="detail-stats-grid">
+  <div class="detail-stat-card">
+    <div class="ds-icon ds-uptime"><i class="bi bi-bar-chart-fill"></i></div>
+    <div class="ds-value">{{ website.uptime_percentage }}%</div>
+    <div class="ds-label">Overall Uptime</div>
+  </div>
+  <div class="detail-stat-card">
+    <div class="ds-icon ds-speed"><i class="bi bi-lightning-charge-fill"></i></div>
+    <div class="ds-value">
+      {% if website.response_time %}{{ website.response_time|floatformat:0 }}ms{% else %}—{% endif %}
+    </div>
+    <div class="ds-label">Last Response</div>
+  </div>
+  <div class="detail-stat-card">
+    <div class="ds-icon ds-checks"><i class="bi bi-list-check"></i></div>
+    <div class="ds-value">{{ website.total_checks }}</div>
+    <div class="ds-label">Total Checks</div>
+  </div>
+  <div class="detail-stat-card">
+    <div class="ds-icon ds-24h"><i class="bi bi-clock-history"></i></div>
+    <div class="ds-value">{{ uptime_24h }}%</div>
+    <div class="ds-label">24h Uptime</div>
+  </div>
+  <div class="detail-stat-card">
+    <div class="ds-icon ds-interval"><i class="bi bi-stopwatch-fill"></i></div>
+    <div class="ds-value">{{ website.check_interval }}m</div>
+    <div class="ds-label">Check Interval</div>
+  </div>
+</div>
+
+<!-- Response Time Chart -->
+{% if chart_labels %}
+<div class="card-glass mt-4">
+  <div class="card-glass-header">
+    <h3 class="card-glass-title"><i class="bi bi-graph-up me-2"></i>Response Time — Last 24h</h3>
+    <span class="text-muted small">{{ checks_24h_count }} checks</span>
+  </div>
+  <div class="chart-container">
+    <canvas id="responseChart"></canvas>
+  </div>
+</div>
+{% endif %}
+
+<!-- Incidents -->
+{% if incidents %}
+<div class="section-header mt-4">
+  <h2 class="section-title"><i class="bi bi-exclamation-triangle me-2"></i>Recent Incidents</h2>
+</div>
+<div class="card-glass">
+  {% for inc in incidents %}
+  <div class="incident-row severity-{{ inc.severity }}">
+    <div class="incident-icon">
+      {% if inc.severity == 'critical' %}<i class="bi bi-fire"></i>
+      {% elif inc.severity == 'warning' %}<i class="bi bi-exclamation-triangle"></i>
+      {% else %}<i class="bi bi-info-circle"></i>{% endif %}
+    </div>
+    <div class="incident-info">
+      <div class="incident-title">{{ inc.title }}</div>
+      <div class="incident-meta">
+        Started {{ inc.started_at|timesince }} ago
+        {% if inc.is_resolved %} · Resolved in {{ inc.duration }}{% endif %}
+      </div>
+    </div>
+    <div class="incident-status">
+      {% if inc.is_resolved %}
+        <span class="badge-status badge-up">RESOLVED</span>
+      {% else %}
+        <span class="badge-status badge-down">ACTIVE</span>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Check History Table -->
+<div class="section-header mt-4">
+  <h2 class="section-title"><i class="bi bi-table me-2"></i>Check History</h2>
+</div>
+<div class="card-glass">
+  <div class="table-responsive">
+    <table class="table-dark-custom">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Status</th>
+          <th>Response Time</th>
+          <th>HTTP Code</th>
+          <th>Error</th>
+          <th>Checked At</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for check in recent_checks %}
+        <tr>
+          <td class="text-muted small">{{ forloop.counter }}</td>
+          <td><span class="badge-status badge-{{ check.status }}">{{ check.status|upper }}</span></td>
+          <td>
+            {% if check.response_time %}
+              <span class="response-time {% if check.response_time > 1000 %}slow{% elif check.response_time > 500 %}medium{% else %}fast{% endif %}">
+                {{ check.response_time|floatformat:0 }}ms
+              </span>
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            {% if check.status_code %}
+              <code class="status-code {% if check.status_code >= 400 %}code-error{% else %}code-ok{% endif %}">
+                {{ check.status_code }}
+              </code>
+            {% else %}—{% endif %}
+          </td>
+          <td class="text-muted small">{{ check.error_message|default:"—"|truncatechars:40 }}</td>
+          <td class="text-muted small">{{ check.checked_at|date:"M d, H:i:s" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+{% if chart_labels %}
+<script>
+const labels = {{ chart_labels|safe }};
+const data   = {{ chart_data|safe }};
+
+const ctx = document.getElementById('responseChart').getContext('2d');
+
+const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+gradient.addColorStop(0, 'rgba(99, 102, 241, 0.4)');
+gradient.addColorStop(1, 'rgba(99, 102, 241, 0)');
+
+new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: labels,
+    datasets: [{
+      label: 'Response Time (ms)',
+      data: data,
+      borderColor: '#6366f1',
+      backgroundColor: gradient,
+      borderWidth: 2,
+      pointRadius: 3,
+      pointBackgroundColor: '#6366f1',
+      fill: true,
+      tension: 0.4,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#1e1e2e',
+        borderColor: '#6366f1',
+        borderWidth: 1,
+        callbacks: {
+          label: ctx => `${ctx.parsed.y.toFixed(0)} ms`
+        }
+      }
+    },
+    scales: {
+      x: {
+        grid: { color: 'rgba(255,255,255,0.05)' },
+        ticks: { color: '#888', maxTicksLimit: 12 }
+      },
+      y: {
+        grid: { color: 'rgba(255,255,255,0.05)' },
+        ticks: { color: '#888', callback: v => `${v}ms` },
+        beginAtZero: true
+      }
+    }
+  }
+});
+</script>
+{% endif %}
+{% endblock %}

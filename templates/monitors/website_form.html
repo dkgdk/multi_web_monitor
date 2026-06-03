@@ -1,0 +1,115 @@
+{% extends 'monitors/base.html' %}
+{% load static %}
+
+{% block title %}{{ action }} Monitor — Multi Web Monitor{% endblock %}
+{% block page_title %}{{ action }} Monitor{% endblock %}
+
+{% block content %}
+<div class="form-page-wrapper">
+  <div class="form-card">
+    <div class="form-card-header">
+      <div class="form-icon">
+        <i class="bi bi-{% if action == 'Add' %}plus-circle-fill{% else %}pencil-fill{% endif %}"></i>
+      </div>
+      <div>
+        <h2 class="form-title">{{ action }} Website Monitor</h2>
+        <p class="form-subtitle">
+          {% if action == 'Add' %}
+            Enter the details of the site you want to monitor.
+          {% else %}
+            Update the monitoring settings for <strong>{{ website.name }}</strong>.
+          {% endif %}
+        </p>
+      </div>
+    </div>
+
+    <form method="post" class="monitor-form" novalidate>
+      {% csrf_token %}
+
+      <div class="form-row-2">
+        <!-- Name -->
+        <div class="form-group">
+          <label class="form-label" for="id_name">
+            <i class="bi bi-tag-fill me-1"></i>Site Name
+          </label>
+          {{ form.name }}
+          {% if form.name.errors %}
+            <div class="form-error">{{ form.name.errors.0 }}</div>
+          {% endif %}
+        </div>
+
+        <!-- URL -->
+        <div class="form-group">
+          <label class="form-label" for="id_url">
+            <i class="bi bi-link-45deg me-1"></i>Website URL
+          </label>
+          {{ form.url }}
+          {% if form.url.errors %}
+            <div class="form-error">{{ form.url.errors.0 }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="form-row-3">
+        <!-- Interval -->
+        <div class="form-group">
+          <label class="form-label" for="id_check_interval">
+            <i class="bi bi-stopwatch-fill me-1"></i>Interval (min)
+          </label>
+          {{ form.check_interval }}
+          {% if form.check_interval.errors %}
+            <div class="form-error">{{ form.check_interval.errors.0 }}</div>
+          {% endif %}
+          <div class="form-hint">How often to ping the site</div>
+        </div>
+
+        <!-- Timeout -->
+        <div class="form-group">
+          <label class="form-label" for="id_timeout">
+            <i class="bi bi-hourglass-split me-1"></i>Timeout (sec)
+          </label>
+          {{ form.timeout }}
+          {% if form.timeout.errors %}
+            <div class="form-error">{{ form.timeout.errors.0 }}</div>
+          {% endif %}
+          <div class="form-hint">Request timeout seconds</div>
+        </div>
+
+        <!-- Email -->
+        <div class="form-group">
+          <label class="form-label" for="id_notify_email">
+            <i class="bi bi-envelope-fill me-1"></i>Alert Email
+          </label>
+          {{ form.notify_email }}
+          {% if form.notify_email.errors %}
+            <div class="form-error">{{ form.notify_email.errors.0 }}</div>
+          {% endif %}
+          <div class="form-hint">Optional email for alerts</div>
+        </div>
+      </div>
+
+      <!-- Active Toggle -->
+      <div class="form-group form-toggle-group">
+        <div class="toggle-wrapper">
+          {{ form.is_active }}
+          <label class="form-check-label" for="id_is_active">
+            <span class="toggle-title">Enable Monitoring</span>
+            <span class="toggle-sub">When disabled, no checks will be performed</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Submit Row -->
+      <div class="form-submit-row">
+        <a href="{% url 'monitors:dashboard' %}" class="btn-cancel">
+          <i class="bi bi-x-lg me-1"></i>Cancel
+        </a>
+        <button type="submit" class="btn-submit">
+          <i class="bi bi-{% if action == 'Add' %}plus-circle{% else %}check-circle{% endif %} me-2"></i>
+          {% if action == 'Add' %}Start Monitoring{% else %}Save Changes{% endif %}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

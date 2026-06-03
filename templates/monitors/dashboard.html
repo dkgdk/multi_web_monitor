@@ -1,0 +1,265 @@
+{% extends 'monitors/base.html' %}
+{% load static %}
+
+{% block title %}Dashboard — Multi Web Monitor{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+
+<!-- Stats Row -->
+<div class="stats-grid">
+  <div class="stat-card stat-total">
+    <div class="stat-icon"><i class="bi bi-globe2"></i></div>
+    <div class="stat-body">
+      <div class="stat-value">{{ total }}</div>
+      <div class="stat-label">Total Monitors</div>
+    </div>
+  </div>
+
+  <div class="stat-card stat-up">
+    <div class="stat-icon"><i class="bi bi-check-circle-fill"></i></div>
+    <div class="stat-body">
+      <div class="stat-value">{{ up_count }}</div>
+      <div class="stat-label">Online</div>
+    </div>
+  </div>
+
+  <div class="stat-card stat-down">
+    <div class="stat-icon"><i class="bi bi-x-circle-fill"></i></div>
+    <div class="stat-body">
+      <div class="stat-value">{{ down_count }}</div>
+      <div class="stat-label">Offline</div>
+    </div>
+  </div>
+
+  <div class="stat-card stat-uptime">
+    <div class="stat-icon"><i class="bi bi-bar-chart-fill"></i></div>
+    <div class="stat-body">
+      <div class="stat-value">{{ overall_uptime }}%</div>
+      <div class="stat-label">Avg Uptime</div>
+    </div>
+  </div>
+
+  <div class="stat-card stat-speed">
+    <div class="stat-icon"><i class="bi bi-lightning-charge-fill"></i></div>
+    <div class="stat-body">
+      <div class="stat-value">{{ avg_response }}ms</div>
+      <div class="stat-label">Avg Response</div>
+    </div>
+  </div>
+</div>
+
+<!-- Active Incidents Alert -->
+{% if recent_incidents %}
+<div class="incidents-banner">
+  <div class="incidents-banner-icon">
+    <i class="bi bi-exclamation-triangle-fill"></i>
+  </div>
+  <div class="incidents-banner-text">
+    <strong>{{ recent_incidents|length }} Active Incident{{ recent_incidents|length|pluralize }}</strong>
+    <span class="ms-2">—
+      {% for inc in recent_incidents %}
+        <a href="{% url 'monitors:website_detail' inc.website.id %}">{{ inc.website.name }}</a>{% if not forloop.last %}, {% endif %}
+      {% endfor %}
+    </span>
+  </div>
+  <a href="{% url 'monitors:incidents' %}" class="btn btn-sm btn-outline-warning ms-auto">View All</a>
+</div>
+{% endif %}
+
+<!-- Monitors Grid -->
+<div class="section-header">
+  <h2 class="section-title">
+    <i class="bi bi-display me-2"></i>Monitored Sites
+  </h2>
+  <a href="{% url 'monitors:website_add' %}" class="btn btn-primary btn-sm">
+    <i class="bi bi-plus-lg me-1"></i>Add New
+  </a>
+</div>
+
+{% if websites %}
+<div class="monitors-grid" id="monitors-grid">
+  {% for website in websites %}
+  <div class="monitor-card status-{{ website.current_status }}" id="monitor-{{ website.id }}" data-website-id="{{ website.id }}">
+    <!-- Card Header -->
+    <div class="monitor-card-header">
+      <div class="monitor-info">
+        <div class="monitor-favicon">
+          <img src="https://www.google.com/s2/favicons?domain={{ website.url }}&sz=32"
+               alt="" width="20" height="20" onerror="this.src='{% static "img/globe.svg" %}'">
+        </div>
+        <div>
+          <div class="monitor-name">{{ website.name }}</div>
+          <div class="monitor-url">{{ website.url|truncatechars:40 }}</div>
+        </div>
+      </div>
+      <div class="status-pill status-{{ website.current_status }}" id="status-pill-{{ website.id }}">
+        <span class="status-dot"></span>
+        {{ website.current_status|upper }}
+      </div>
+    </div>
+
+    <!-- Card Stats -->
+    <div class="monitor-stats">
+      <div class="monitor-stat">
+        <div class="monitor-stat-value" id="uptime-{{ website.id }}">{{ website.uptime_percentage }}%</div>
+        <div class="monitor-stat-label">Uptime</div>
+      </div>
+      <div class="monitor-stat">
+        <div class="monitor-stat-value" id="response-{{ website.id }}">
+          {% if website.response_time %}{{ website.response_time|floatformat:0 }}ms{% else %}—{% endif %}
+        </div>
+        <div class="monitor-stat-label">Response</div>
+      </div>
+      <div class="monitor-stat">
+        <div class="monitor-stat-value">{{ website.check_interval }}m</div>
+        <div class="monitor-stat-label">Interval</div>
+      </div>
+    </div>
+
+    <!-- Uptime Bar -->
+    <div class="uptime-bar-wrap">
+      <div class="uptime-bar">
+        <div class="uptime-bar-fill" style="width: {{ website.uptime_percentage }}%"></div>
+      </div>
+      <span class="uptime-bar-label">{{ website.uptime_percentage }}% uptime</span>
+    </div>
+
+    <!-- Last Checked -->
+    <div class="monitor-meta">
+      <span class="meta-item">
+        <i class="bi bi-clock me-1"></i>
+        {% if website.last_checked %}
+          {{ website.last_checked|timesince }} ago
+        {% else %}
+          Never checked
+        {% endif %}
+      </span>
+      {% if not website.is_active %}
+        <span class="badge bg-secondary">Paused</span>
+      {% endif %}
+    </div>
+
+    <!-- Card Actions -->
+    <div class="monitor-actions">
+      <a href="{% url 'monitors:website_detail' website.pk %}" class="btn-action btn-details" title="View Details">
+        <i class="bi bi-graph-up"></i> Details
+      </a>
+      <button class="btn-action btn-check" onclick="checkNow({{ website.id }}, this)" title="Check Now">
+        <i class="bi bi-arrow-repeat"></i> Check
+      </button>
+      <a href="{% url 'monitors:website_edit' website.pk %}" class="btn-action btn-edit" title="Edit">
+        <i class="bi bi-pencil"></i>
+      </a>
+      <form method="post" action="{% url 'monitors:website_delete' website.pk %}"
+            onsubmit="return confirm('Delete {{ website.name }}?');" style="display:inline">
+        {% csrf_token %}
+        <button type="submit" class="btn-action btn-delete" title="Delete">
+          <i class="bi bi-trash"></i>
+        </button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% else %}
+<!-- Empty State -->
+<div class="empty-state">
+  <div class="empty-icon">
+    <i class="bi bi-radar"></i>
+  </div>
+  <h3>No monitors yet</h3>
+  <p>Start monitoring your websites by adding your first site.</p>
+  <a href="{% url 'monitors:website_add' %}" class="btn btn-primary btn-lg mt-3">
+    <i class="bi bi-plus-circle me-2"></i>Add Your First Monitor
+  </a>
+</div>
+{% endif %}
+
+<!-- Recent Activity -->
+{% if recent_checks %}
+<div class="section-header mt-5">
+  <h2 class="section-title">
+    <i class="bi bi-activity me-2"></i>Recent Activity
+  </h2>
+</div>
+<div class="card-glass">
+  <div class="table-responsive">
+    <table class="table-dark-custom">
+      <thead>
+        <tr>
+          <th>Site</th>
+          <th>Status</th>
+          <th>Response Time</th>
+          <th>HTTP Code</th>
+          <th>Checked At</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for check in recent_checks %}
+        <tr>
+          <td>
+            <a href="{% url 'monitors:website_detail' check.website.pk %}" class="site-link">
+              {{ check.website.name }}
+            </a>
+          </td>
+          <td>
+            <span class="badge-status badge-{{ check.status }}">{{ check.status|upper }}</span>
+          </td>
+          <td>
+            {% if check.response_time %}
+              <span class="response-time {% if check.response_time > 1000 %}slow{% elif check.response_time > 500 %}medium{% else %}fast{% endif %}">
+                {{ check.response_time|floatformat:0 }}ms
+              </span>
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            {% if check.status_code %}
+              <code class="status-code {% if check.status_code >= 400 %}code-error{% else %}code-ok{% endif %}">
+                {{ check.status_code }}
+              </code>
+            {% else %}—{% endif %}
+          </td>
+          <td class="text-muted small">{{ check.checked_at|timesince }} ago</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Auto-refresh dashboard every 30 seconds
+setInterval(() => {
+  fetch('{% url "monitors:api_status" %}')
+    .then(r => r.json())
+    .then(data => {
+      data.websites.forEach(w => {
+        // Update status pill
+        const pill = document.getElementById(`status-pill-${w.id}`);
+        if (pill) {
+          pill.className = `status-pill status-${w.status}`;
+          pill.innerHTML = `<span class="status-dot"></span>${w.status.toUpperCase()}`;
+        }
+        // Update uptime
+        const uptime = document.getElementById(`uptime-${w.id}`);
+        if (uptime) uptime.textContent = `${w.uptime}%`;
+        // Update response
+        const resp = document.getElementById(`response-${w.id}`);
+        if (resp) resp.textContent = w.response_time ? `${Math.round(w.response_time)}ms` : '—';
+        // Update card border
+        const card = document.getElementById(`monitor-${w.id}`);
+        if (card) {
+          card.className = card.className.replace(/status-(up|down|unknown)/g, `status-${w.status}`);
+        }
+      });
+    })
+    .catch(() => {});
+}, 30000);
+</script>
+{% endblock %}
