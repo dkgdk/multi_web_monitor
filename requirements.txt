@@ -4,7 +4,6 @@ annotated-types==0.7.0
 ansible==10.7.0
 ansible-core==2.17.14
 anyio==4.9.0
-apturl==0.5.2
 asgiref==3.11.1
 async-timeout==5.0.1
 attrs==21.2.0
